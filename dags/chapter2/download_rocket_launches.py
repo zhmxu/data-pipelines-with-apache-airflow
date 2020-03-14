@@ -21,8 +21,10 @@ download_launches = BashOperator(
 )
 
 
-def _get_pictures():
+def _get_pictures(target_dir, execution_date, **context):
     # Ensure directory exists
+    print(target_dir)
+    year, month, date, *_ = execution_date.timetuple()
     pathlib.Path("/tmp/images").mkdir(parents=True, exist_ok=True)
 
     # Download all pictures in launches.json
@@ -35,13 +37,19 @@ def _get_pictures():
             target_file = f"/tmp/images/{image_filename}"
             with open(target_file, "wb") as f:
                 f.write(response.content)
-            print(f"Downloaded {image_url} to {target_file}")
+            print(f"Downloaded {image_url} to {target_file} for {year}-{month:02}-{date:02}")
 
 
-get_pictures = PythonOperator(task_id="get_pictures", python_callable=_get_pictures, dag=dag)
+get_pictures = PythonOperator(task_id="get_pictures",
+                              python_callable=_get_pictures,
+                              provide_context=True,
+                              op_kwargs={"target_dir": '/tmp/images'},
+                              dag=dag)
 
 notify = BashOperator(
-    task_id="notify", bash_command='echo "There are now $(ls /tmp/images/ | wc -l) images."', dag=dag
+    task_id="notify",
+    bash_command='echo "There are now $(ls /tmp/images/ | wc -l) images."',
+    dag=dag
 )
 
 download_launches >> get_pictures >> notify
